@@ -86,8 +86,17 @@ export async function fetchTechnicalData(ticker: string, symbol: string, name: s
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let raw: any[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    try { raw = await (yf.historical as any)(ticker, { period1, interval: '1d' }, { validateResult: false }); } catch { raw = []; }
+    // Methode 1: chart()
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result: any = await (yf as any).chart(ticker, { period1, interval: '1d' }, { validateResult: false });
+      raw = result?.quotes ?? [];
+    } catch { /* ignore */ }
+    // Methode 2: historical() als Fallback
+    if (raw.length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      try { raw = await (yf as any).historical(ticker, { period1, interval: '1d' }, { validateResult: false }); } catch { raw = []; }
+    }
     if (!raw || raw.length < 20) return empty;
 
     const candles: OHLCV[] = raw
