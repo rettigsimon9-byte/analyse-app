@@ -104,6 +104,7 @@ export default function ZielzonenPage() {
                         <span className="font-bold text-gray-900">{z.name}</span>
                         <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{z.markt}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[z.status] || 'bg-gray-100 text-gray-600'}`}>{z.status}</span>
+                        <span className="text-xs text-gray-400">{new Date(z.createdAt).toLocaleDateString('de-DE')}</span>
                       </div>
                       <div className="grid grid-cols-4 gap-3">
                         {[

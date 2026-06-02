@@ -121,6 +121,30 @@ Regeln:
             fazit: json.fazit ?? '',
           },
         });
+
+        // Zielzone automatisch speichern wenn alle Pflichtfelder vorhanden
+        if (
+          json.kaufzoneMin != null && json.kaufzoneMax != null &&
+          json.zielzone1 != null && json.stopp != null
+        ) {
+          await prisma.zielzone.create({
+            data: {
+              symbol: asset.symbol,
+              name: asset.name,
+              markt: asset.markt,
+              ticker: asset.ticker,
+              kurs: kurs ?? undefined,
+              einstiegMin: json.kaufzoneMin,
+              einstiegMax: json.kaufzoneMax,
+              ziel1: json.zielzone1,
+              ziel2: json.zielzone2 ?? null,
+              stopp: json.stopp,
+              status: 'Auf dem Weg',
+              aktiv: true,
+            },
+          });
+        }
+
         results.push(analyse);
       } catch {
         continue;
