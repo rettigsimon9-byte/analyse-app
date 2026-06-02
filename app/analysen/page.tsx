@@ -27,6 +27,7 @@ export default function AnalysenPage() {
     setLoading(false);
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
 
   const generate = async () => {

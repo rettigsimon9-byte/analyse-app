@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, BarChart2, FileText, Target, Briefcase, Newspaper, LineChart, LogOut, TrendingUp, Star } from 'lucide-react';
+import { LayoutDashboard, BarChart2, Target, Briefcase, Newspaper, LineChart, LogOut, TrendingUp, Star } from 'lucide-react';
 
 const NAV = [
   { href: '/',               label: 'Dashboard',      icon: LayoutDashboard },
