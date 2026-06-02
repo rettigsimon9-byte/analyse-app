@@ -19,8 +19,18 @@ export default function Dashboard() {
       fetch('/api/zielzonen?aktiv=true').then(r => r.json()),
       fetch('/api/analysen').then(r => r.json()),
       fetch('/api/portfolio').then(r => r.json()),
-    ]).then(([zz, an, pos]) => {
-      setStats({ zielzonen: zz.length, analysen: an.length, positionen: pos.filter((p: { status: string }) => p.status === 'offen').length });
+    ]).then(async ([zz, an, pos]) => {
+      // Nur Zielzonen zählen wo Kurs aktuell im Einstiegsbereich liegt
+      const zzTickers = Array.from(new Set((zz as {ticker:string}[]).map(z => z.ticker).filter(Boolean))).join(',');
+      let imBereich = 0;
+      if (zzTickers) {
+        const p = await fetch(`/api/preise?tickers=${zzTickers}`).then(r => r.json());
+        imBereich = (zz as {ticker:string;einstiegMin:number;einstiegMax:number}[]).filter(z => {
+          const kurs = p[z.ticker]?.kurs;
+          return kurs != null && kurs >= z.einstiegMin && kurs <= z.einstiegMax;
+        }).length;
+      }
+      setStats({ zielzonen: imBereich, analysen: an.length, positionen: pos.filter((p: { status: string }) => p.status === 'offen').length });
       setRecentAnalysen(an.slice(0, 5));
     });
     fetch(`/api/preise?tickers=${tickers}`)
