@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Plus, Loader2, Trash2, X, Check, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2 } from 'lucide-react';
-import { STATUS_COLORS, fmtKurs, ASSETS } from '@/app/lib/assets';
+import { fmtKurs, ASSETS } from '@/app/lib/assets';
 import dynamic from 'next/dynamic';
 
 const ZielzonenChart = dynamic(() => import('@/components/ZielzonenChart'), { ssr: false });
