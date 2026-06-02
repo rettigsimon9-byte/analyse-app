@@ -2,27 +2,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/app/lib/db';
 import { NextRequest, NextResponse } from 'next/server';
 import { ASSETS } from '@/app/lib/assets';
+import { fetchTechnicalData, formatTechnicalContext } from '@/app/lib/technicalAnalysis';
 
 const client = new Anthropic();
-
-async function getPreise(tickers: string[]): Promise<Record<string, number | null>> {
-  const result: Record<string, number | null> = {};
-  try {
-    const yf = (await import('yahoo-finance2')).default;
-    await Promise.all(tickers.map(async ticker => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const q: any = await yf.quote(ticker, {}, { validateResult: false });
-        result[ticker] = q?.regularMarketPrice ?? null;
-      } catch {
-        result[ticker] = null;
-      }
-    }));
-  } catch {
-    tickers.forEach(t => { result[t] = null; });
-  }
-  return result;
-}
 
 export async function POST(req: NextRequest) {
   // Body einmalig lesen
@@ -70,32 +52,33 @@ Antworte NUR mit JSON (kein Markdown): {"titel":"...","untertitel":"...","inhalt
       ? ASSETS.filter(a => symbols.includes(a.symbol))
       : ASSETS;
 
-    const tickers = targets.map(a => a.ticker).filter(Boolean);
-    const preise = await getPreise(tickers);
-
     const results = [];
     for (const asset of targets) {
-      const kurs = preise[asset.ticker] ?? null;
+      // Echte technische Daten fetchen (200 Tage OHLCV + Indikatoren)
+      const td = await fetchTechnicalData(asset.ticker, asset.symbol, asset.name);
+      const technicalContext = formatTechnicalContext(td);
+      const kurs = td.kurs;
 
-      const kursText = kurs != null ? kurs.toLocaleString('de-DE') : 'nicht verfügbar';
       const msg = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
-        messages: [{ role: 'user', content: `Du bist ein erfahrener Finanzanalyst. Erstelle IMMER eine vollständige technische Analyse – auch wenn kein aktueller Kurs vorliegt. Nutze dann dein Wissen über typische Kursbereiche dieses Assets.
+        messages: [{ role: 'user', content: `Du bist ein erfahrener technischer Analyst. Analysiere das folgende Instrument auf Basis der ECHTEN Marktdaten.
 
-Instrument: ${asset.name} (${asset.symbol})
-Markt: ${asset.markt}
-Aktueller Kurs: ${kursText}
+${technicalContext}
 
-Antworte AUSSCHLIESSLICH mit gültigem JSON (kein Markdown, kein Text davor oder danach):
-{"bias":"Bullisch","kaufzoneMin":100.0,"kaufzoneMax":105.0,"zielzone1":115.0,"zielzone2":125.0,"stopp":95.0,"einschaetzung":"Technische Analyse in 2-3 Sätzen.","fazit":"Kurze Einschätzung in einem Satz."}
+Erstelle eine fundierte technische Analyse. Leite Kaufzonen aus echten Support-Levels/MAs ab, Zielzonen aus echten Widerstandsniveaus/Hochs.
+
+Antworte AUSSCHLIESSLICH mit gültigem JSON (kein Markdown, kein Text außerhalb):
+{"bias":"Bullisch","kaufzoneMin":100.0,"kaufzoneMax":105.0,"zielzone1":115.0,"zielzone2":125.0,"stopp":95.0,"einschaetzung":"Technische Einschätzung in 2-3 Sätzen basierend auf den Indikatoren.","fazit":"Konkreter Ausblick in einem Satz."}
 
 Regeln:
-- bias: genau "Bullisch", "Bärisch" oder "Neutral"
-- Alle Preiswerte als Zahlen (keine Strings)
-- einschaetzung: 2-3 informatige Sätze auf Deutsch
-- fazit: genau 1 Satz auf Deutsch
-- NIEMALS "Analyse nicht möglich" oder ähnliches schreiben` }] });
+- bias: "Bullisch", "Bärisch" oder "Neutral" — basierend auf Trend und RSI
+- Kaufzone: nahe an Support-Levels, MAs oder 30/90-Tage-Tiefs
+- Zielzone: nahe an Widerständen, 30/90-Tage-Hochs
+- Stopp: unter wichtigem Support oder 30-Tage-Tief
+- Alle Preiswerte als Zahlen, auf aktuelle Größenordnung abgestimmt
+- einschaetzung: konkret auf die echten Indikatoren eingehen (MA, RSI, Levels)
+- IMMER vollständige Analyse liefern` }] });
 
       const text = msg.content[0].type === 'text' ? msg.content[0].text : '';
       const match = text.match(/\{[\s\S]*\}/);
@@ -109,7 +92,7 @@ Regeln:
             name: asset.name,
             markt: asset.markt,
             ticker: asset.ticker,
-            kurs: kurs ?? undefined,
+            kurs: td.kurs ?? undefined,
             generiert: true,
             bias: json.bias ?? 'Neutral',
             kaufzoneMin: json.kaufzoneMin ?? null,
@@ -133,7 +116,7 @@ Regeln:
               name: asset.name,
               markt: asset.markt,
               ticker: asset.ticker,
-              kurs: kurs ?? undefined,
+              kurs: td.kurs ?? undefined,
               einstiegMin: json.kaufzoneMin,
               einstiegMax: json.kaufzoneMax,
               ziel1: json.zielzone1,
