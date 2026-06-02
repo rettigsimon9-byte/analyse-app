@@ -24,7 +24,7 @@ Antworte NUR mit JSON-Array:
       const match = text.match(/\[[\s\S]*\]/);
       if (!match) throw new Error('Kein JSON');
       const newsItems = JSON.parse(match[0]);
-      const created = await Promise.all(newsItems.map((n: Record<string, unknown>) => prisma.news.create({ data: n })));
+      const created = await Promise.all(newsItems.map((n: { titel: string; inhalt: string; kategorie?: string; wichtig?: boolean }) => prisma.news.create({ data: n })));
       return NextResponse.json({ ok: true, count: created.length });
     }
 
