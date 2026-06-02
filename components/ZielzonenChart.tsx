@@ -69,11 +69,18 @@ export default function ZielzonenChart({ ticker, einstiegMin, einstiegMax, ziel1
       } else {
         // Keine Kursdaten — unsichtbare Linie als Anker für die Preis-Levels
         series = chart.addLineSeries({ color: 'rgba(0,0,0,0)', lineWidth: 1 });
-        // Fake-Punkte damit die Skala stimmt
+        // Anker-Daten so setzen dass die gesamte Zonen-Spanne sichtbar ist
+        const allLevels = [stopp, einstiegMin, einstiegMax, ziel1, ...(ziel2 ? [ziel2] : []), ...(kurs ? [kurs] : [])];
+        const minL = Math.min(...allLevels) * 0.96;
+        const maxL = Math.max(...allLevels) * 1.04;
         const from = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const mid  = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         const to   = new Date().toISOString().split('T')[0];
-        const mid  = (stopp + ziel1) / 2;
-        series.setData([{ time: from, value: mid }, { time: to, value: mid }]);
+        series.setData([
+          { time: from, value: minL },
+          { time: mid,  value: maxL },
+          { time: to,   value: (minL + maxL) / 2 },
+        ]);
         setStatus('no-data');
       }
 
