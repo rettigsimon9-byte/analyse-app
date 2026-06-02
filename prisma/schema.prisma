@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Analyse {
+  id            String   @id @default(cuid())
+  symbol        String
+  name          String
+  markt         String   // "Indizes" | "Rohstoffe" | "Krypto" | "Devisen" | "Aktien"
+  ticker        String   @default("")
+  datum         DateTime @default(now())
+  kurs          Float?
+  bias          String   @default("Neutral")
+  kaufzoneMin   Float?
+  kaufzoneMax   Float?
+  zielzone1     Float?
+  zielzone2     Float?
+  stopp         Float?
+  einschaetzung String   @db.Text
+  fazit         String   @db.Text
+  generiert     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+model Zielzone {
+  id          String   @id @default(cuid())
+  symbol      String
+  name        String
+  markt       String
+  ticker      String   @default("")
+  kurs        Float?
+  einstiegMin Float
+  einstiegMax Float
+  ziel1       Float
+  ziel2       Float?
+  stopp       Float
+  status      String   @default("Auf dem Weg")
+  aktiv       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Position {
+  id           String   @id @default(cuid())
+  depot        String
+  symbol       String
+  name         String
+  ticker       String   @default("")
+  einstand     Float
+  anzahl       Float
+  ziel         Float?
+  stopp        Float?
+  status       String   @default("offen")
+  createdAt    DateTime @default(now())
+}
+
+model News {
+  id        String   @id @default(cuid())
+  titel     String
+  inhalt    String   @db.Text
+  kategorie String   @default("Markt")
+  wichtig   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Sonderbericht {
+  id         String   @id @default(cuid())
+  titel      String
+  untertitel String   @default("")
+  inhalt     String   @db.Text
+  kategorie  String   @default("Analyse")
+  featured   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
