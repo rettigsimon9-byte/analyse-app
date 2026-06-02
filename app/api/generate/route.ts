@@ -57,6 +57,7 @@ Antworte NUR mit JSON (kein Markdown): {"titel":"...","untertitel":"...","inhalt
       // Echte technische Daten fetchen (200 Tage OHLCV + Indikatoren)
       const td = await fetchTechnicalData(asset.ticker, asset.symbol, asset.name);
       const technicalContext = formatTechnicalContext(td);
+      const kurs = td.kurs;
       const msg = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,
@@ -64,19 +65,21 @@ Antworte NUR mit JSON (kein Markdown): {"titel":"...","untertitel":"...","inhalt
 
 ${technicalContext}
 
-Erstelle eine fundierte technische Analyse. Leite Kaufzonen aus echten Support-Levels/MAs ab, Zielzonen aus echten Widerstandsniveaus/Hochs.
+WICHTIGE LOGIK-REGELN (PFLICHT):
+- Kaufzone: MUSS unter dem aktuellen Kurs (${kurs ?? 'unbekannt'}) liegen — wir kaufen bei einem Rücklauf zu Support, NICHT über dem aktuellen Preis
+- Zielzone: MUSS über dem aktuellen Kurs liegen — das ist unser Kursziel
+- Stopp: MUSS unter der Kaufzone liegen — das ist unsere Verlustbegrenzung
+- Reihenfolge zwingend: Stopp < KaufzoneMin < KaufzoneMax < AktuellerKurs < Zielzone1
 
-Antworte AUSSCHLIESSLICH mit gültigem JSON (kein Markdown, kein Text außerhalb):
-{"bias":"Bullisch","kaufzoneMin":100.0,"kaufzoneMax":105.0,"zielzone1":115.0,"zielzone2":125.0,"stopp":95.0,"einschaetzung":"Technische Einschätzung in 2-3 Sätzen basierend auf den Indikatoren.","fazit":"Konkreter Ausblick in einem Satz."}
+Antworte AUSSCHLIESSLICH mit gültigem JSON:
+{"bias":"Bullisch","kaufzoneMin":100.0,"kaufzoneMax":105.0,"zielzone1":120.0,"zielzone2":130.0,"stopp":95.0,"einschaetzung":"2-3 Sätze mit konkretem Bezug auf MA, RSI und Key-Levels.","fazit":"1 Satz Ausblick."}
 
-Regeln:
-- bias: "Bullisch", "Bärisch" oder "Neutral" — basierend auf Trend und RSI
-- Kaufzone: nahe an Support-Levels, MAs oder 30/90-Tage-Tiefs
-- Zielzone: nahe an Widerständen, 30/90-Tage-Hochs
-- Stopp: unter wichtigem Support oder 30-Tage-Tief
-- Alle Preiswerte als Zahlen, auf aktuelle Größenordnung abgestimmt
-- einschaetzung: konkret auf die echten Indikatoren eingehen (MA, RSI, Levels)
-- IMMER vollständige Analyse liefern` }] });
+Weitere Regeln:
+- bias basierend auf Trend (MA-Lage) und RSI
+- Kaufzone: an MA50/MA200 oder 30/90-Tage-Tief orientieren
+- Zielzone: an 30/90-Tage-Hoch oder nächstem Widerstand orientieren
+- Stopp: unter 30-Tage-Tief oder letztem Swing-Low
+- Alle Werte als Zahlen, passend zur Größenordnung des Assets` }] });
 
       const text = msg.content[0].type === 'text' ? msg.content[0].text : '';
       const match = text.match(/\{[\s\S]*\}/);
@@ -84,6 +87,31 @@ Regeln:
 
       try {
         const json = JSON.parse(match[0]);
+
+        // ---- Zonen-Validierung ----
+        // Kaufzone muss unter dem aktuellen Kurs liegen
+        // Zielzone muss über dem aktuellen Kurs liegen
+        if (kurs != null) {
+          // Kaufzone über Kurs → an MA50 oder 30-Tage-Tief anpassen
+          if (json.kaufzoneMax != null && json.kaufzoneMax > kurs * 0.99) {
+            const anchor = td.ma50 ?? td.tief30 ?? kurs * 0.95;
+            const spread = kurs * 0.02; // 2% Spanne
+            json.kaufzoneMax = Math.round(anchor * 100) / 100;
+            json.kaufzoneMin = Math.round((anchor - spread) * 100) / 100;
+          }
+          // Zielzone unter Kurs → an 30-Tage-Hoch anpassen
+          if (json.zielzone1 != null && json.zielzone1 < kurs * 1.01) {
+            json.zielzone1 = Math.round((td.hoch30 ?? kurs * 1.08) * 100) / 100;
+            if (json.zielzone2 != null && json.zielzone2 <= json.zielzone1) {
+              json.zielzone2 = Math.round((td.hoch90 ?? json.zielzone1 * 1.05) * 100) / 100;
+            }
+          }
+          // Stopp über Kaufzone → korrigieren
+          if (json.stopp != null && json.kaufzoneMin != null && json.stopp >= json.kaufzoneMin) {
+            json.stopp = Math.round(json.kaufzoneMin * 0.97 * 100) / 100;
+          }
+        }
+
         const analyse = await prisma.analyse.create({
           data: {
             symbol: asset.symbol,
