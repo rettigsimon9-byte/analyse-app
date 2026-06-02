@@ -57,8 +57,6 @@ Antworte NUR mit JSON (kein Markdown): {"titel":"...","untertitel":"...","inhalt
       // Echte technische Daten fetchen (200 Tage OHLCV + Indikatoren)
       const td = await fetchTechnicalData(asset.ticker, asset.symbol, asset.name);
       const technicalContext = formatTechnicalContext(td);
-      const kurs = td.kurs;
-
       const msg = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1500,

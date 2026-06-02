@@ -86,6 +86,7 @@ export async function fetchTechnicalData(ticker: string, symbol: string, name: s
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let raw: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     try { raw = await (yf.historical as any)(ticker, { period1, interval: '1d' }, { validateResult: false }); } catch { raw = []; }
     if (!raw || raw.length < 20) return empty;
 
